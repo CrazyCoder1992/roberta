@@ -1,4 +1,4 @@
-import json, os
+import json
 import numpy as np
 from bert4keras.backend import keras, K
 from bert4keras.models import build_transformer_model
@@ -13,8 +13,7 @@ from tqdm import tqdm
 import sys
 import io
 import json
-# sys.path.append('/content/drive/My Drive/kaikeba/project03/roberta/data')
-from evaluate import evaluate as src_evaluate
+from week15.roberta.data.evaluate import evaluate as src_evaluate
 from collections import OrderedDict
 
 from keras.models import load_model
@@ -26,12 +25,12 @@ batch_size = 4
 learing_rate = 2e-5
 
 # 数据路径
-data_dir = '/data'
-output_dir = '/output'
+data_dir = 'data'
+output_dir = 'output'
 
 # 模型路径
-bert_dir = '/data'
-config_path = f'{bert_dir}/bert_config.json'
+bert_dir = 'data'
+config_path = None  # f'{bert_dir}/bert_config.json'
 checkpoint_path = f'{bert_dir}/bert_model.ckpt'
 dict_path = f'{bert_dir}/vocab.txt'
 
@@ -47,14 +46,20 @@ def load_data(filename):
     return D
 
 
-train_data = load_data(
-    # os.path.join(data_dir,'train.json')
-    os.path.join(data_dir, 'demo_train.json')
-)
-
-print(train_data[0])
+train_data = load_data(data_dir + '/train-v1.1.json')
 
 tokenizer = Tokenizer(dict_path, do_lower_case=True)
+
+
+def search(pattern, sequence):
+    """从sequence中寻找子串pattern
+    如果找到，返回第一个下标；否则返回-1。
+    """
+    n = len(pattern)
+    for i in range(len(sequence)):
+        if sequence[i:i + n] == pattern:
+            return i
+    return -1
 
 
 class data_generator(DataGenerator):
@@ -199,14 +204,11 @@ class Evaluator(keras.callbacks.Callback):
         self.best_val_f1 = 0.
 
     def on_epoch_end(self, epoch, logs=None):
-        metrics = evaluate(
-            os.path.join(data_dir, 'dev.json')
-            # os.path.join(data_dir,'demo_dev.json')
-        )
+        metrics = evaluate(data_dir + '/dev-v1.1.json')
         if float(metrics['F1']) >= self.best_val_f1:
             self.best_val_f1 = float(metrics['F1'])
-            model.save_weights(os.path.join(output_dir, 'roberta_best_model.weights'))
-            model.save(os.path.join(output_dir, 'roberta_best_model.h5'))
+            model.save_weights(output_dir + '/roberta_best_model.weights')
+            model.save(output_dir + 'roberta_best_model.h5')
         metrics['BEST_F1'] = self.best_val_f1
         print(metrics)
 
@@ -223,16 +225,6 @@ model.fit_generator(
     callbacks=[evaluator]
 )
 
-model = load_model(os.path.join(output_dir, 'roberta_best_model.h5'),
+model = load_model(output_dir + 'roberta_best_model.h5',
                    custom_objects={'MaskedSoftmax': MaskedSoftmax, 'sparse_accuracy': sparse_accuracy})
-print(evaluate(os.path.join(data_dir, 'dev.json')))
-
-# from keras.models import load_model
-# model=load_model(os.path.join(output_dir,'roberta_best_model.h5'))
-
-
-# model.load_weights(os.path.join(data_dir,'best_model.weights'))
-
-predict_to_file(os.path.join(data_dir, 'test1.json'), os.path.join(output_dir, 'pred1.json'))
-
-predict_to_file(os.path.join(data_dir, 'test2.json'), os.path.join(output_dir, 'pred2.json'))
+print(evaluate(data_dir + 'dev-v1.1.json'))
