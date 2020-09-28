@@ -30,9 +30,9 @@ output_dir = 'output'
 
 # 模型路径
 bert_dir = 'data'
-config_path = None  # f'{bert_dir}/bert_config.json'
-checkpoint_path = f'{bert_dir}/bert_model.ckpt'
-dict_path = f'{bert_dir}/vocab.txt'
+config_path = f'{bert_dir}/bert_config.json'
+checkpoint_path = None  # f'{bert_dir}/bert_model.ckpt'
+dict_path = f'{bert_dir}/bert-base-uncased-vocab.txt'
 
 
 def load_data(filename):
@@ -46,7 +46,7 @@ def load_data(filename):
     return D
 
 
-train_data = load_data(data_dir + '/train-v1.1.json')
+train_data = load_data(data_dir + '/train.json')
 
 tokenizer = Tokenizer(dict_path, do_lower_case=True)
 
@@ -104,7 +104,7 @@ class MaskedSoftmax(Layer):
 
 model = build_transformer_model(
     config_path,
-    checkpoint_path,
+    checkpoint_path
 )
 
 output = Dense(2)(model.output)
@@ -184,8 +184,8 @@ def evaluate(filename):
     评测函数（官方提供评测脚本evaluate.py）
     """
     predict_to_file(filename, filename + '.pred.json')
-    ref_ans = json.load(io.open(filename))
-    pred_ans = json.load(io.open(filename + '.pred.json'))
+    ref_ans = json.load(open(filename))['data']
+    pred_ans = json.load(open(filename + '.pred.json'))
     F1, EM, TOTAL, SKIP = src_evaluate(ref_ans, pred_ans)
     output_result = OrderedDict()
     output_result['F1'] = '%.3f' % F1
@@ -204,7 +204,7 @@ class Evaluator(keras.callbacks.Callback):
         self.best_val_f1 = 0.
 
     def on_epoch_end(self, epoch, logs=None):
-        metrics = evaluate(data_dir + '/dev-v1.1.json')
+        metrics = evaluate(data_dir + '/dev.json')
         if float(metrics['F1']) >= self.best_val_f1:
             self.best_val_f1 = float(metrics['F1'])
             model.save_weights(output_dir + '/roberta_best_model.weights')
@@ -227,4 +227,4 @@ model.fit_generator(
 
 model = load_model(output_dir + 'roberta_best_model.h5',
                    custom_objects={'MaskedSoftmax': MaskedSoftmax, 'sparse_accuracy': sparse_accuracy})
-print(evaluate(data_dir + 'dev-v1.1.json'))
+print(evaluate(data_dir + 'dev.json'))
